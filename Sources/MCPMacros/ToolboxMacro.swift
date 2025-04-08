@@ -3,43 +3,68 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
-/// Toolbox 매크로 구현
-public struct ToolboxMacro: MemberMacro, ConformanceMacro {
+public struct ToolboxMacro: MemberMacro {
     public static func expansion(
         of node: AttributeSyntax,
         providingMembersOf declaration: some DeclGroupSyntax,
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         // 매개변수 추출
-        guard let arguments = node.arguments?.as(LabeledExprListSyntax.self),
-              let nameExpr = arguments.first(where: { $0.label?.text == "name" })?.expression.as(StringLiteralExprSyntax.self),
-              let descExpr = arguments.first(where: { $0.label?.text == "description" })?.expression.as(StringLiteralExprSyntax.self) else {
-            throw MacroError("Toolbox macro requires name and description parameters")
+        guard let args = node.arguments?.as(LabeledExprListSyntax.self),
+              let nameArg = args.first(where: { $0.label?.text == "name" })?.expression,
+              let descArg = args.first(where: { $0.label?.text == "description" })?.expression else {
+            throw MacroError("Missing required parameters")
         }
         
-        let name = nameExpr.segments.description
-        let description = descExpr.segments.description
-        
-        // 도구 모음 메타데이터 메서드
-        let metadataMethod = """
-        public func getToolboxMetadata() -> (name: String, description: String) {
-            return (\(name), \(description))
+        // 메타데이터 메서드 생성
+        let infoMethod = """
+        func getToolboxInfo() -> (name: String, description: String) {
+            return (\(nameArg.description), \(descArg.description))
         }
         """
         
-        // getMCPTools 메서드 - 비어있는 기본 구현
+        // 도구 목록 메서드 생성
         let toolsMethod = """
-        public func getMCPTools() -> [Tool] {
+        func getTools() -> [Tool] {
             var tools: [Tool] = []
-            // @Tool 매크로가 적용된 메서드들이 여기에 도구를 등록할 것입니다
+            for method in _getToolDefinitionMethods() {
+                if let tool = self.perform(method)?.takeRetainedValue() as? Tool {
+                    tools.append(tool)
+                }
+            }
             return tools
         }
+        
+        private func _getToolDefinitionMethods() -> [Selector] {
+            var methods: [Selector] = []
+            let mirror = Mirror(reflecting: self)
+            for child in mirror.children {
+                if let methodName = child.label, methodName.hasPrefix("_toolDefinition_") {
+                    if let selector = NSSelectorFromString(methodName) {
+                        methods.append(selector)
+                    }
+                }
+            }
+            return methods
+        }
         """
         
-        return [
-            DeclSyntax(stringLiteral: metadataMethod),
-            DeclSyntax(stringLiteral: toolsMethod)
-        ]
+        return [DeclSyntax(stringLiteral: infoMethod), DeclSyntax(stringLiteral: toolsMethod)]
+    }
+    
+    // 여기서 제네릭 파라미터 T를 사용하여, 프로토콜이 요구하는 "some TypeSyntax" 요구사항을 충족합니다.
+    public static func expansion<T: TypeSyntaxProtocol>(
+        of node: AttributeSyntax,
+        providingMembersOf declaration: some DeclGroupSyntax,
+        conformingTo type: T,
+        in context: some MacroExpansionContext
+    ) throws -> [DeclSyntax] {
+        // type을 문자열로 변환한 후 좌우 공백 제거하여 비교
+        let typeName = "\(type)".trimmingCharacters(in: .whitespacesAndNewlines)
+        if typeName == "MCPToolbox" {
+            return try expansion(of: node, providingMembersOf: declaration, in: context)
+        }
+        return []
     }
     
     public static func expansion(
