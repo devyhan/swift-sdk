@@ -1,8 +1,16 @@
-//
-//  File.swift
-//  mcp-swift-sdk
-//
-//  Created by 조요한/모바일앱개발팀 on 4/8/25.
-//
+import SwiftCompilerPlugin
+import SwiftSyntax
+import SwiftSyntaxBuilder
+import SwiftSyntaxMacros
 
-import Foundation
+/// Param 매크로 구현
+public struct ParamMacro: PeerMacro {
+    public static func expansion(
+        of node: AttributeSyntax,
+        providingPeersOf declaration: some DeclSyntaxProtocol,
+        in context: some MacroExpansionContext
+    ) throws -> [DeclSyntax] {
+        // 메타데이터용 매크로이므로 실제 코드는 생성하지 않습니다
+        return []
+    }
+}

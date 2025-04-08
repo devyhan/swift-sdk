@@ -1,8 +1,20 @@
-//
-//  File.swift
-//  mcp-swift-sdk
-//
-//  Created by 조요한/모바일앱개발팀 on 4/8/25.
-//
+import SwiftCompilerPlugin
+import SwiftSyntaxMacros
 
-import Foundation
+/// MCP 매크로 플러그인 진입점
+@main
+struct MCPMacrosPlugin: CompilerPlugin {
+    let providingMacros: [Macro.Type] = [
+        ToolboxMacro.self,
+        ToolMacro.self,
+        ParamMacro.self
+    ]
+}
+
+struct MacroError: Error, CustomStringConvertible {
+    let description: String
+    
+    init(_ description: String) {
+        self.description = description
+    }
+}
