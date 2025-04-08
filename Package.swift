@@ -18,10 +18,7 @@ let package = Package(
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
             name: "MCP",
-            targets: ["MCP"]),
-        .library(
-            name: "MCPMacros",
-            targets: ["MCPMacros"]),
+            targets: ["MCP"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-system.git", from: "1.0.0"),
