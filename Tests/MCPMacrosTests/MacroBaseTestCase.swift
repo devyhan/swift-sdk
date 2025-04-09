@@ -10,7 +10,8 @@
             MacroTesting.withMacroTesting(
                 //isRecording: true,
                 macros: [
-                
+                    ToolboxMacro.self,
+                    ToolMacro.self
                 ]
             ) {
                 super.invokeTest()
