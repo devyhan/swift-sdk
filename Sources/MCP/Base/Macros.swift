@@ -5,6 +5,7 @@ import Foundation
 ///   - name: 도구 모음의 이름
 ///   - description: 도구 모음에 대한 설명
 @attached(extension, conformances: MCPToolbox)
+@attached(member, names: arbitrary)
 public macro Toolbox(name: String, description: String) = #externalMacro(
     module: "MCPMacros",
     type: "ToolboxMacro"
@@ -19,3 +20,15 @@ public macro Tool(description: String, schema: Value? = nil) = #externalMacro(
     module: "MCPMacros",
     type: "ToolMacro"
 )
+
+/// MCP 도구 모음을 나타내는 프로토콜
+public protocol MCPToolbox {
+    /// 도구 모음에 대한 정보 반환
+    func getToolboxInfo() -> (name: String, description: String)
+    
+    /// 도구 모음에 포함된 모든 도구 반환
+    func getTools() -> [Tool]
+    
+    /// 도구 호출 처리
+    func handleToolCall(name: String, arguments: [String: Value]?) throws -> [Tool.Content]
+}
