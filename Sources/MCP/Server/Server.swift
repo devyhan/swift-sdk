@@ -41,6 +41,9 @@ public actor Server {
 
     /// Server capabilities
     public struct Capabilities: Hashable, Codable, Sendable {
+        /// Default capabilities
+        public static let `default` = Capabilities()
+        
         /// Resources capabilities
         public struct Resources: Hashable, Codable, Sendable {
             /// Whether the resource can be subscribed to
@@ -123,6 +126,9 @@ public actor Server {
     public var capabilities: Capabilities
     /// The server configuration
     public var configuration: Configuration
+    
+    /// The registered tools
+    private var registeredTools: [String: Tool] = [:]
 
     /// Request handlers
     private var methodHandlers: [String: RequestHandlerBox] = [:]
@@ -229,9 +235,84 @@ public actor Server {
         }
         connection = nil
     }
-
+    
+    /// 서버 태스크가 완료될 때까지 대기
     public func waitUntilCompleted() async {
         await task?.value
+    }
+    
+    // MARK: - Tool Management
+    
+    /// Register a tool with the server
+    /// - Parameter tool: The tool to register
+    /// - Returns: The server instance
+    @discardableResult
+    public func registerTool(_ tool: Tool) -> Self {
+        registeredTools[tool.name] = tool
+        return self
+    }
+    
+    /// Register a tool with a handler
+    /// - Parameters:
+    ///   - tool: The tool to register
+    ///   - handler: The handler function for the tool
+    /// - Returns: The server instance
+    @discardableResult
+    public func registerTool(
+        _ tool: Tool,
+        handler: @escaping @Sendable ([String: Value]?) async throws -> [Tool.Content]
+    ) -> Self {
+        registeredTools[tool.name] = tool
+        
+        // Register a handler for this specific tool
+        let callToolHandlerExists = methodHandlers[CallTool.name] != nil
+        if !callToolHandlerExists {
+            // Create a new CallTool handler if none exists
+            withMethodHandler(CallTool.self) { [weak self] params in
+                guard let self = self else {
+                    throw MCPError.internalError("Server was deallocated")
+                }
+                
+                if params.name == tool.name {
+                    do {
+                        let content = try await handler(params.arguments)
+                        return CallTool.Result(content: content)
+                    } catch {
+                        let errorMessage = error.localizedDescription
+                        return CallTool.Result(
+                            content: [.text("Error: \(errorMessage)")],
+                            isError: true
+                        )
+                    }
+                } else {
+                    // Try the default handler for other tools
+                    return try await self.handleToolCall(params)
+                }
+            }
+        }
+        
+        return self
+    }
+    
+    /// Get all registered tools
+    /// - Returns: An array of registered tools
+    public func getRegisteredTools() -> [Tool] {
+        Array(registeredTools.values)
+    }
+    
+    /// Handle a tool call
+    /// - Parameter params: The call parameters
+    /// - Returns: The call result
+    private func handleToolCall(_ params: CallTool.Parameters) async throws -> CallTool.Result {
+        guard registeredTools[params.name] != nil else {
+            throw MCPError.invalidParams("Tool not found: \(params.name)")
+        }
+        
+        // Default implementation returns an error
+        return CallTool.Result(
+            content: [.text("No handler registered for tool: \(params.name)")],
+            isError: true
+        )
     }
 
     // MARK: - Registration
@@ -412,6 +493,25 @@ public actor Server {
 
         // Ping
         withMethodHandler(Ping.self) { _ in return Empty() }
+        
+        // List Tools
+        withMethodHandler(ListTools.self) { [weak self] params in
+            guard let self = self else {
+                throw MCPError.internalError("Server was deallocated")
+            }
+            
+            let tools = await self.getRegisteredTools()
+            return ListTools.Result(tools: tools)
+        }
+        
+        // Call Tool (default handler)
+        withMethodHandler(CallTool.self) { [weak self] params in
+            guard let self = self else {
+                throw MCPError.internalError("Server was deallocated")
+            }
+            
+            return try await self.handleToolCall(params)
+        }
     }
 
     private func setInitialState(

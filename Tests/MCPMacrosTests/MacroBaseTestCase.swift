@@ -7,14 +7,15 @@
 
     class MacroBaseTestCase: XCTestCase {
         override func invokeTest() {
-            MacroTesting.withMacroTesting(
-                record: false,
-                macros: [
-                    ToolMacro.self
-                ]
-            ) {
-                super.invokeTest()
+        MacroTesting.withMacroTesting(
+        record: false,
+        macros: [
+        ToolMacro.self,
+            ServerMacro.self
+            ]
+        ) {
+            super.invokeTest()
             }
-        }
+    }
     }
 #endif
