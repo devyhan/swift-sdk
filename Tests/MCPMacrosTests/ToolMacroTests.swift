@@ -21,24 +21,8 @@ final class ToolMacroTests: MacroBaseTestCase {
                         let tool = Tool(
                             name: "testTool",
                             description: "테스트 도구",
-                            inputSchema: .object([
-                        "type": .string("object"),
-                        "properties": .object([
-                            "message": .object([
-                                "type": .string("string"),
-                                "description": .string("Input parameter")
-                            ])
-                        ]),
-                        "required": .array([.string("message")])
-                                ])
+                            inputSchema: nil
                         )
-                        // 도구 모음에 도구 등록
-                        if let toolbox = self as? (any MCPToolbox) {
-                            if let mutableToolbox = toolbox as? (AnyObject) {
-                                let selector = Selector(("_registerTool:"))
-                                _ = mutableToolbox.perform(selector, with: tool)
-                            }
-                        }
                         return tool
                     }
                 }
@@ -47,13 +31,39 @@ final class ToolMacroTests: MacroBaseTestCase {
         }
     }
     
-    func testToolWithCustomSchema() {
+    func testToolWithCustomName() {
+        assertMacro {
+            """
+            struct Calculator {
+                @Tool(name: "addition", description: "두 숫자를 더합니다")
+                var add: Tool
+            }
+            """
+        } expansion: {
+            """
+            struct Calculator {
+                var add: Tool {
+                    get {
+                        let tool = Tool(
+                            name: "addition",
+                            description: "두 숫자를 더합니다",
+                            inputSchema: nil
+                        )
+                        return tool
+                    }
+                }
+            }
+            """
+        }
+    }
+    
+    func testToolWithInputSchema() {
         assertMacro {
             """
             struct Calculator {
                 @Tool(
                     description: "두 숫자를 더합니다",
-                    schema: .object([
+                    inputSchema: .object([
                         "a": .object(["type": .string("number")]),
                         "b": .object(["type": .string("number")])
                     ])
@@ -74,13 +84,6 @@ final class ToolMacroTests: MacroBaseTestCase {
                                 "b": .object(["type": .string("number")])
                             ])
                         )
-                        // 도구 모음에 도구 등록
-                        if let toolbox = self as? (any MCPToolbox) {
-                            if let mutableToolbox = toolbox as? (AnyObject) {
-                                let selector = Selector(("_registerTool:"))
-                                _ = mutableToolbox.perform(selector, with: tool)
-                            }
-                        }
                         return tool
                     }
                 }
