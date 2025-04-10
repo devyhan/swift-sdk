@@ -8,7 +8,7 @@ import XCTest
 class MacroBaseTestCase: XCTestCase {
     override func invokeTest() {
         MacroTesting.withMacroTesting(
-            record: false,
+            record: false, // 테스트 기록 모드 비활성화
             macros: [
                 ToolMacro.self,
                 ServerMacro.self

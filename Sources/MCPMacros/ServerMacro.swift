@@ -4,6 +4,7 @@ import SwiftSyntaxMacros
 
 /// Server 매크로는 구조체나 클래스를 MCP 서버로 확장합니다.
 /// 이 매크로는 서버 인스턴스를 생성하고, 도구와 핸들러를 자동으로 연결하는 기능을 제공합니다.
+/// 또한 래퍼 메서드를 자동으로 추가하여 다른 파일에서도 서버 기능에 접근할 수 있게 합니다.
 public struct ServerMacro: PeerMacro {
     public static func expansion(
         of node: AttributeSyntax,
@@ -61,11 +62,15 @@ public struct ServerMacro: PeerMacro {
         // 서버 시작 메서드
         let startServerMethod = createStartServerMethodString(structName: typeName)
         
-        // 각 메서드를 분리해서 생성
+        // 래퍼 메서드 - 타입 내부에 생성
+        let wrapperMethod = createWrapperMethodString()
+        
+        // 각 디클레이션을 분리해서 생성
         let createServerDecl = DeclSyntax(stringLiteral: createServerMethod)
         let startServerDecl = DeclSyntax(stringLiteral: startServerMethod)
+        let wrapperMethodDecl = DeclSyntax(stringLiteral: wrapperMethod)
         
-        return [createServerDecl, startServerDecl]
+        return [createServerDecl, startServerDecl, wrapperMethodDecl]
     }
     
     // MARK: - Helper Methods
@@ -197,6 +202,22 @@ func createServer() -> Server {
 /// - Parameter transport: 사용할 트랜스포트
 /// - Returns: 시작된 서버 인스턴스
 func startServer(transport: any Transport) async throws -> Server {
+    let server = createServer()
+    try await server.start(transport: transport)
+    return server
+}
+"""
+    }
+    
+    /// 래퍼 메서드 문자열 생성 - 타입 내부에 추가되는 메서드
+    private static func createWrapperMethodString() -> String {
+        return """
+/// 서버를 생성하고 시작하는 래퍼 메서드
+/// 다른 파일에서 접근할 수 있도록 public으로 선언
+/// - Parameter transport: 사용할 트랜스포트
+/// - Returns: 시작된 서버 인스턴스
+public func createAndStartServer(transport: any Transport) async throws -> Server {
+    // 매크로가 생성한 함수 호출
     let server = createServer()
     try await server.start(transport: transport)
     return server

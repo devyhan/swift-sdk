@@ -74,6 +74,17 @@ final class ServerMacroTests: MacroBaseTestCase {
                 try await server.start(transport: transport)
                 return server
             }
+
+            /// 서버를 생성하고 시작하는 래퍼 메서드
+            /// 다른 파일에서 접근할 수 있도록 public으로 선언
+            /// - Parameter transport: 사용할 트랜스포트
+            /// - Returns: 시작된 서버 인스턴스
+            public func createAndStartServer(transport: any Transport) async throws -> Server {
+                // 매크로가 생성한 함수 호출
+                let server = createServer()
+                try await server.start(transport: transport)
+                return server
+            }
             """#
         }
     }
@@ -172,6 +183,17 @@ final class ServerMacroTests: MacroBaseTestCase {
                 try await server.start(transport: transport)
                 return server
             }
+
+            /// 서버를 생성하고 시작하는 래퍼 메서드
+            /// 다른 파일에서 접근할 수 있도록 public으로 선언
+            /// - Parameter transport: 사용할 트랜스포트
+            /// - Returns: 시작된 서버 인스턴스
+            public func createAndStartServer(transport: any Transport) async throws -> Server {
+                // 매크로가 생성한 함수 호출
+                let server = createServer()
+                try await server.start(transport: transport)
+                return server
+            }
             """
         }
     }
@@ -227,6 +249,17 @@ final class ServerMacroTests: MacroBaseTestCase {
             /// - Parameter transport: 사용할 트랜스포트
             /// - Returns: 시작된 서버 인스턴스
             func startServer(transport: any Transport) async throws -> Server {
+                let server = createServer()
+                try await server.start(transport: transport)
+                return server
+            }
+
+            /// 서버를 생성하고 시작하는 래퍼 메서드
+            /// 다른 파일에서 접근할 수 있도록 public으로 선언
+            /// - Parameter transport: 사용할 트랜스포트
+            /// - Returns: 시작된 서버 인스턴스
+            public func createAndStartServer(transport: any Transport) async throws -> Server {
+                // 매크로가 생성한 함수 호출
                 let server = createServer()
                 try await server.start(transport: transport)
                 return server
