@@ -5,7 +5,54 @@ import SwiftSyntaxMacros
 /// Server 매크로는 구조체나 클래스를 MCP 서버로 확장합니다.
 /// 이 매크로는 서버 인스턴스를 생성하고, 도구와 핸들러를 자동으로 연결하는 기능을 제공합니다.
 /// 또한 래퍼 메서드를 자동으로 추가하여 다른 파일에서도 서버 기능에 접근할 수 있게 합니다.
-public struct ServerMacro: MemberMacro {
+public struct ServerMacro: PeerMacro, MemberMacro {
+    public static func expansion(
+        of node: AttributeSyntax,
+        providingPeersOf declaration: some DeclSyntaxProtocol,
+        in context: some MacroExpansionContext
+    ) throws -> [DeclSyntax] {
+        // 구조체나 클래스만 처리
+        let typeName: String
+        let memberBlock: MemberBlockSyntax
+        
+        if let structDecl = declaration.as(StructDeclSyntax.self) {
+            typeName = structDecl.name.text
+            memberBlock = structDecl.memberBlock
+        } else if let classDecl = declaration.as(ClassDeclSyntax.self) {
+            typeName = classDecl.name.text
+            memberBlock = classDecl.memberBlock
+        } else {
+            throw MacroError("@Server는 구조체나 클래스에만 적용할 수 있습니다")
+        }
+        
+        let createServerFunc = createServerFunctionString(typeName: typeName)
+        let startServerFunc = createStartServerFunctionString(typeName: typeName)
+        
+        return [
+            DeclSyntax(stringLiteral: createServerFunc),
+            DeclSyntax(stringLiteral: startServerFunc)
+        ]
+    }
+    
+    private static func createServerFunctionString(typeName: String) -> String {
+        return """
+        func createServer() -> Server {
+            let server = \(typeName)().server
+            return server
+        }
+        """
+    }
+    
+    private static func createStartServerFunctionString(typeName: String) -> String {
+        return """
+        func startServer(transport: any Transport) async throws -> Server {
+            let server = \(typeName)()
+            try await server.startServer(transport: transport)
+            return server.server
+        }
+        """
+    }
+    
     public static func expansion(
         of node: AttributeSyntax,
         providingMembersOf declaration: some DeclSyntaxProtocol,

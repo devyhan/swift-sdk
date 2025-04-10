@@ -21,7 +21,8 @@ public macro Tool(name: String? = nil, description: String, inputSchema: Value? 
 ///   - version: 서버 버전
 ///   - capabilities: 서버 기능 (선택 사항)
 ///   - configuration: 서버 구성 (선택 사항)
-@attached(member)
+@attached(member, names: named(server), named(initializeServer), named(startServer))
+@attached(peer, names: named(createServer), named(startServer))
 public macro Server(
     name: String,
     version: String,
