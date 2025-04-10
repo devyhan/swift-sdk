@@ -19,9 +19,6 @@ let package = Package(
         .library(
             name: "MCP",
             targets: ["MCP"]),
-        .executable(
-            name: "ServerMacroExample",
-            targets: ["ServerMacroExample"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-system.git", from: "1.0.0"),
@@ -59,14 +56,6 @@ let package = Package(
                 "MCPMacros",
                 .product(name: "MacroTesting", package: "swift-macro-testing"),
             ]
-        ),
-        .executableTarget(
-            name: "ServerMacroExample",
-            dependencies: [
-                "MCP",
-                .product(name: "Logging", package: "swift-log"),
-            ],
-            path: "Examples/ServerMacro"
         ),
     ]
 )
