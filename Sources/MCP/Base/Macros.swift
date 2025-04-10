@@ -22,7 +22,7 @@ public macro Tool(name: String? = nil, description: String, inputSchema: Value? 
 ///   - capabilities: 서버 기능 (선택 사항)
 ///   - configuration: 서버 구성 (선택 사항)
 @attached(member, names: named(server), named(initializeServer), named(startServer))
-@attached(peer, names: arbitrary)
+@attached(peer, names: named(createServer), named(startServer))
 public macro Server(
     name: String,
     version: String,
@@ -35,6 +35,25 @@ public typealias ServerCapabilities = Server.Capabilities
 
 /// 서버 구성을 위한 타입 별칭
 public typealias ServerConfiguration = Server.Configuration
+
+/// GlobalServer 매크로는 전역 범위에서 MCP 서버를 생성합니다.
+/// 이 매크로는 구조체나 클래스 없이 서버를 생성하고 관리하는 함수들을 제공합니다.
+///
+/// - Parameters:
+///   - name: 서버 이름
+///   - version: 서버 버전
+///   - capabilities: 서버 기능 (선택 사항)
+///   - configuration: 서버 구성 (선택 사항)
+@freestanding(declaration, names: named(createServer), named(startServer), named(setupHandlers))
+public macro GlobalServer(
+    name: String,
+    version: String,
+    capabilities: ServerCapabilities = .default,
+    configuration: ServerConfiguration = .default
+) = #externalMacro(
+    module: "MCPMacros",
+    type: "GlobalServerMacro"
+)
 
 /// Resource 매크로는 속성을 MCP 리소스로 변환합니다.
 /// 이 매크로는 Resource.swift에 정의된 Resource 구조체와 1:1 매칭되는 속성을 생성합니다.

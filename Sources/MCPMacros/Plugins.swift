@@ -6,6 +6,7 @@ struct MCPMacrosPlugin: CompilerPlugin {
     let providingMacros: [any Macro.Type] = [
         ToolMacro.self,
         ServerMacro.self,
-        ResourceMacro.self
+        ResourceMacro.self,
+        GlobalServerMacro.self
     ]
 }
