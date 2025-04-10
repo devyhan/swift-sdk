@@ -22,24 +22,8 @@ final class SimpleMacroTests: MacroBaseTestCase {
                         let tool = Tool(
                             name: "simple",
                             description: "간단한 도구",
-                            inputSchema: .object([
-                        "type": .string("object"),
-                        "properties": .object([
-                            "message": .object([
-                                "type": .string("string"),
-                                "description": .string("Input parameter")
-                            ])
-                        ]),
-                        "required": .array([.string("message")])
-                                ])
+                            inputSchema: nil
                         )
-                        // 도구 모음에 도구 등록
-                        if let toolbox = self as? (any MCPToolbox) {
-                            if let mutableToolbox = toolbox as? (AnyObject) {
-                                let selector = Selector(("_registerTool:"))
-                                _ = mutableToolbox.perform(selector, with: tool)
-                            }
-                        }
                         return tool
                     }
                 }

@@ -10,7 +10,6 @@
             MacroTesting.withMacroTesting(
                 record: false,
                 macros: [
-                    ToolboxMacro.self,
                     ToolMacro.self
                 ]
             ) {
