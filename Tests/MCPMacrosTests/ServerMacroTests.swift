@@ -23,53 +23,58 @@ final class ServerMacroTests: MacroBaseTestCase {
             }
             """
         } expansion: {
-            """
+            #"""
             struct MyServer {
-                @Tool(name: "echo", description: "Echo tool", inputSchema: .object([
-                    "message": .string(description: "Message to echo back")
-                ]))
-                var echoTool: Tool
+                var echoTool: Tool {
+                    get {
+                        let tool = Tool(
+                            name: "echo",
+                            description: "Echo tool",
+                            inputSchema: .object([
+                            "message": .string(description: "Message to echo back")
+                        ])
+                        )
+                        return tool
+                    }
+                }
                 
                 func echoToolHandler(arguments: [String: Value]?) async throws -> [Tool.Content] {
                     let message = arguments?["message"]?.stringValue ?? "No message"
-                    return [.text("Echo: \\(message)")]
+                    return [.text("Echo: \(message)")]
                 }
             }
 
-            extension MyServer {
-                /// 서버 인스턴스 생성
-                func createServer() -> Server {
-                    let server = Server(
-                        name: "TestServer",
-                        version: "1.0.0",
-                        capabilities: .default,
-                        configuration: .default
-                    )
-                    
-                    // echo 도구 등록
-                    server.registerTool(
-                        self.echoTool,
-                        handler: { [weak self] arguments in
-                            guard let self = self else {
-                                throw MCPError.internalError("Server was deallocated")
-                            }
-                            return try await self.echoToolHandler(arguments: arguments)
+            /// 서버 인스턴스 생성
+            func createServer() -> Server {
+                let server = Server(
+                    name: "TestServer",
+                    version: "1.0.0",
+                    capabilities: .default,
+                    configuration: .default
+                )
+                // echo 도구 등록
+                server.registerTool(
+                    self.echoTool,
+                    handler: { [weak self] arguments in
+                        guard let self = self else {
+                            throw MCPError.internalError("Server was deallocated")
                         }
-                    )
-                    
-                    return server
-                }
-                
-                /// 서버 시작
-                /// - Parameter transport: 사용할 트랜스포트
-                /// - Returns: 시작된 서버 인스턴스
-                func startServer(transport: any Transport) async throws -> Server {
-                    let server = createServer()
-                    try await server.start(transport: transport)
-                    return server
-                }
+                        return try await self.echoToolHandler(arguments: arguments)
+                    }
+                )
+
+                return server
             }
-            """
+
+            /// 서버 시작
+            /// - Parameter transport: 사용할 트랜스포트
+            /// - Returns: 시작된 서버 인스턴스
+            func startServer(transport: any Transport) async throws -> Server {
+                let server = createServer()
+                try await server.start(transport: transport)
+                return server
+            }
+            """#
         }
     }
     
@@ -96,11 +101,27 @@ final class ServerMacroTests: MacroBaseTestCase {
         } expansion: {
             """
             struct MyComplexServer {
-                @Tool(name: "echo", description: "Echo tool")
-                var echoTool: Tool
-                
-                @Tool(name: "calculator", description: "Simple calculator")
-                var calculatorTool: Tool
+                var echoTool: Tool {
+                    get {
+                        let tool = Tool(
+                            name: "echo",
+                            description: "Echo tool",
+                            inputSchema: nil
+                        )
+                        return tool
+                    }
+                }
+
+                var calculatorTool: Tool {
+                    get {
+                        let tool = Tool(
+                            name: "calculator",
+                            description: "Simple calculator",
+                            inputSchema: nil
+                        )
+                        return tool
+                    }
+                }
                 
                 func echoToolHandler(arguments: [String: Value]?) async throws -> [Tool.Content] {
                     return [.text("Echo")]
@@ -111,49 +132,45 @@ final class ServerMacroTests: MacroBaseTestCase {
                 }
             }
 
-            extension MyComplexServer {
-                /// 서버 인스턴스 생성
-                func createServer() -> Server {
-                    let server = Server(
-                        name: "MultiToolServer",
-                        version: "1.0.0",
-                        capabilities: .default,
-                        configuration: .default
-                    )
-                    
-                    // echo 도구 등록
-                    server.registerTool(
-                        self.echoTool,
-                        handler: { [weak self] arguments in
-                            guard let self = self else {
-                                throw MCPError.internalError("Server was deallocated")
-                            }
-                            return try await self.echoToolHandler(arguments: arguments)
+            /// 서버 인스턴스 생성
+            func createServer() -> Server {
+                let server = Server(
+                    name: "MultiToolServer",
+                    version: "1.0.0",
+                    capabilities: .default,
+                    configuration: .default
+                )
+                // echo 도구 등록
+                server.registerTool(
+                    self.echoTool,
+                    handler: { [weak self] arguments in
+                        guard let self = self else {
+                            throw MCPError.internalError("Server was deallocated")
                         }
-                    )
-                    
-                    // calculator 도구 등록
-                    server.registerTool(
-                        self.calculatorTool,
-                        handler: { [weak self] arguments in
-                            guard let self = self else {
-                                throw MCPError.internalError("Server was deallocated")
-                            }
-                            return try await self.calculatorToolHandler(arguments: arguments)
+                        return try await self.echoToolHandler(arguments: arguments)
+                    }
+                )
+                // calculator 도구 등록
+                server.registerTool(
+                    self.calculatorTool,
+                    handler: { [weak self] arguments in
+                        guard let self = self else {
+                            throw MCPError.internalError("Server was deallocated")
                         }
-                    )
-                    
-                    return server
-                }
-                
-                /// 서버 시작
-                /// - Parameter transport: 사용할 트랜스포트
-                /// - Returns: 시작된 서버 인스턴스
-                func startServer(transport: any Transport) async throws -> Server {
-                    let server = createServer()
-                    try await server.start(transport: transport)
-                    return server
-                }
+                        return try await self.calculatorToolHandler(arguments: arguments)
+                    }
+                )
+
+                return server
+            }
+
+            /// 서버 시작
+            /// - Parameter transport: 사용할 트랜스포트
+            /// - Returns: 시작된 서버 인스턴스
+            func startServer(transport: any Transport) async throws -> Server {
+                let server = createServer()
+                try await server.start(transport: transport)
+                return server
             }
             """
         }
@@ -178,36 +195,41 @@ final class ServerMacroTests: MacroBaseTestCase {
         } expansion: {
             """
             struct CustomServer {
-                @Tool(description: "Empty tool")
-                var emptyTool: Tool
+                var emptyTool: Tool {
+                    get {
+                        let tool = Tool(
+                            name: "emptyTool",
+                            description: "Empty tool",
+                            inputSchema: nil
+                        )
+                        return tool
+                    }
+                }
             }
 
-            extension CustomServer {
-                /// 서버 인스턴스 생성
-                func createServer() -> Server {
-                    let server = Server(
-                        name: "CustomServer",
-                        version: "1.0.0",
-                        capabilities: ServerCapabilities(
-                            tools: ServerCapabilities.Tools(listChanged: true)
-                        ),
-                        configuration: .strict
-                    )
-                    
-                    // emptyTool 도구 등록 (핸들러 없음)
-                    server.registerTool(self.emptyTool)
-                    
-                    return server
-                }
-                
-                /// 서버 시작
-                /// - Parameter transport: 사용할 트랜스포트
-                /// - Returns: 시작된 서버 인스턴스
-                func startServer(transport: any Transport) async throws -> Server {
-                    let server = createServer()
-                    try await server.start(transport: transport)
-                    return server
-                }
+            /// 서버 인스턴스 생성
+            func createServer() -> Server {
+                let server = Server(
+                    name: "CustomServer",
+                    version: "1.0.0",
+                    capabilities: ServerCapabilities(
+                    tools: ServerCapabilities.Tools(listChanged: true)
+                ),
+                    configuration: .strict
+                )
+                // emptyTool 도구 등록 (핸들러 없음)
+                server.registerTool(self.emptyTool)
+
+                return server
+            }
+
+            /// 서버 시작
+            /// - Parameter transport: 사용할 트랜스포트
+            /// - Returns: 시작된 서버 인스턴스
+            func startServer(transport: any Transport) async throws -> Server {
+                let server = createServer()
+                try await server.start(transport: transport)
+                return server
             }
             """
         }

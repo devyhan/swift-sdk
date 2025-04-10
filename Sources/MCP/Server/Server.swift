@@ -257,6 +257,9 @@ public actor Server {
     ///   - tool: The tool to register
     ///   - handler: The handler function for the tool
     /// - Returns: The server instance
+    // 도구별 핸들러 저장
+    private var toolHandlers: [String: @Sendable ([String: Value]?) async throws -> [Tool.Content]] = [:]
+    
     @discardableResult
     public func registerTool(
         _ tool: Tool,
@@ -264,16 +267,19 @@ public actor Server {
     ) -> Self {
         registeredTools[tool.name] = tool
         
-        // Register a handler for this specific tool
-        let callToolHandlerExists = methodHandlers[CallTool.name] != nil
-        if !callToolHandlerExists {
+        // 도구별 핸들러 저장
+        toolHandlers[tool.name] = handler
+        
+        // 범용 CallTool 핸들러가 아직 등록되지 않았다면 등록
+        if methodHandlers[CallTool.name] == nil {
             // Create a new CallTool handler if none exists
             withMethodHandler(CallTool.self) { [weak self] params in
                 guard let self = self else {
                     throw MCPError.internalError("Server was deallocated")
                 }
                 
-                if params.name == tool.name {
+                // 등록된 도구 핸들러가 있는지 확인
+                if let handler = await self.toolHandlers[params.name] {
                     do {
                         let content = try await handler(params.arguments)
                         return CallTool.Result(content: content)
@@ -285,8 +291,15 @@ public actor Server {
                         )
                     }
                 } else {
-                    // Try the default handler for other tools
-                    return try await self.handleToolCall(params)
+                    // 등록된 도구는 있지만 핸들러가 없는 경우
+                    guard await self.registeredTools[params.name] != nil else {
+                        throw MCPError.invalidParams("Tool not found: \(params.name)")
+                    }
+                    
+                    return CallTool.Result(
+                        content: [.text("No handler registered for tool: \(params.name)")],
+                        isError: true
+                    )
                 }
             }
         }
@@ -504,13 +517,37 @@ public actor Server {
             return ListTools.Result(tools: tools)
         }
         
-        // Call Tool (default handler)
-        withMethodHandler(CallTool.self) { [weak self] params in
-            guard let self = self else {
-                throw MCPError.internalError("Server was deallocated")
+        // CallTool 핸들러가 아직 등록되지 않았다면, 도구별 핸들러를 사용하는 공통 핸들러 등록
+        if methodHandlers[CallTool.name] == nil {
+            withMethodHandler(CallTool.self) { [weak self] params in
+                guard let self = self else {
+                    throw MCPError.internalError("Server was deallocated")
+                }
+                
+                // 등록된 도구 핸들러가 있는지 확인
+                if let handler = await self.toolHandlers[params.name] {
+                    do {
+                        let content = try await handler(params.arguments)
+                        return CallTool.Result(content: content)
+                    } catch {
+                        let errorMessage = error.localizedDescription
+                        return CallTool.Result(
+                            content: [.text("Error: \(errorMessage)")],
+                            isError: true
+                        )
+                    }
+                } else {
+                    // 등록된 도구는 있지만 핸들러가 없는 경우
+                    guard await self.registeredTools[params.name] != nil else {
+                        throw MCPError.invalidParams("Tool not found: \(params.name)")
+                    }
+                    
+                    return CallTool.Result(
+                        content: [.text("No handler registered for tool: \(params.name)")],
+                        isError: true
+                    )
+                }
             }
-            
-            return try await self.handleToolCall(params)
         }
     }
 

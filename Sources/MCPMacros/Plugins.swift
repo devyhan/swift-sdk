@@ -2,7 +2,7 @@ import SwiftCompilerPlugin
 import SwiftSyntaxMacros
 
 @main
-struct MacrosPlugin: CompilerPlugin {
+struct MCPMacrosPlugin: CompilerPlugin {
     let providingMacros: [any Macro.Type] = [
         ToolMacro.self,
         ServerMacro.self

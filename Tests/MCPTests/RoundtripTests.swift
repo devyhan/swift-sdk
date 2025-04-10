@@ -44,30 +44,24 @@ struct RoundtripTests {
                 tools: .init()
             )
         )
-        await server.withMethodHandler(ListTools.self) { _ in
-            return ListTools.Result(tools: [
-                Tool(
-                    name: "add",
-                    description: "Adds two numbers together",
-                    inputSchema: [
-                        "a": ["type": "integer", "description": "The first number"],
-                        "a": ["type": "integer", "description": "The second number"],
-                    ])
+        // 도구 생성
+        let addTool = Tool(
+            name: "add",
+            description: "Adds two numbers together",
+            inputSchema: [
+                "a": ["type": "integer", "description": "The first number"],
+                "b": ["type": "integer", "description": "The second number"],
             ])
-        }
-        await server.withMethodHandler(CallTool.self) { request in
-            guard request.name == "add" else {
-                return CallTool.Result(content: [.text("Invalid tool name")], isError: true)
-            }
-
-            guard let a = request.arguments?["a"]?.intValue,
-                let b = request.arguments?["b"]?.intValue
+            
+        // 도구와 핸들러 등록
+        await server.registerTool(addTool) { arguments in
+            guard let a = arguments?["a"]?.intValue,
+                  let b = arguments?["b"]?.intValue
             else {
-                return CallTool.Result(
-                    content: [.text("Did not receive valid arguments")], isError: true)
+                return [.text("Did not receive valid arguments")]
             }
-
-            return CallTool.Result(content: [.text("\(a + b)")])
+            
+            return [.text("\(a + b)")]
         }
 
         // Add resource handlers to server
