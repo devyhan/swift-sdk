@@ -5,10 +5,11 @@ import SwiftSyntaxMacros
 /// Server 매크로는 구조체나 클래스를 MCP 서버로 확장합니다.
 /// 이 매크로는 서버 인스턴스를 생성하고, 도구와 핸들러를 자동으로 연결하는 기능을 제공합니다.
 /// 또한 래퍼 메서드를 자동으로 추가하여 다른 파일에서도 서버 기능에 접근할 수 있게 합니다.
-public struct ServerMacro: PeerMacro {
+public struct ServerMacro: MemberMacro {
     public static func expansion(
         of node: AttributeSyntax,
-        providingPeersOf declaration: some DeclSyntaxProtocol,
+        providingMembersOf declaration: some DeclSyntaxProtocol,
+        conformingTo protocols: [TypeSyntax],
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
         // 구조체나 클래스만 처리
@@ -49,31 +50,29 @@ public struct ServerMacro: PeerMacro {
         // 도구와 핸들러 매핑
         let toolHandlerMappings = mapToolsToHandlers(tools: toolProperties, handlers: handlerMethods)
         
-        // 서버 생성 메서드
-        let createServerMethod = createServerMethodString(
-            structName: typeName,
+        // 서버 속성 문자열 생성
+        let serverProperty = createServerPropertyString(
             serverName: nameArg.description,
             serverVersion: versionArg.description,
             capabilities: capabilitiesArg.description,
-            configuration: configurationArg.description,
+            configuration: configurationArg.description
+        )
+        
+        // 서버 초기화 메서드 문자열 생성
+        let initializeServerMethod = createInitializeServerMethodString(
             toolHandlerMappings: toolHandlerMappings
         )
         
-        // 서버 시작 메서드
-        let startServerMethod = createStartServerMethodString(structName: typeName)
+        // 서버 시작 메서드 문자열 생성
+        let startServerMethod = createStartServerMethodString()
         
-        // 래퍼 메서드 - 타입 내부에 생성
-        let wrapperMethod = createWrapperMethodString()
-        
-        // 각 디클레이션을 분리해서 생성
-        let createServerDecl = DeclSyntax(stringLiteral: createServerMethod)
+        // 디클레이션들 생성
+        let serverPropertyDecl = DeclSyntax(stringLiteral: serverProperty)
+        let initializeServerDecl = DeclSyntax(stringLiteral: initializeServerMethod)
         let startServerDecl = DeclSyntax(stringLiteral: startServerMethod)
-        let wrapperMethodDecl = DeclSyntax(stringLiteral: wrapperMethod)
         
-        return [createServerDecl, startServerDecl, wrapperMethodDecl]
+        return [serverPropertyDecl, initializeServerDecl, startServerDecl]
     }
-    
-    // MARK: - Helper Methods
     
     /// 구조체나 클래스에서 @Tool 속성 찾기
     private static func findToolProperties(in memberBlock: MemberBlockSyntax) -> [(name: String, property: String)] {
@@ -145,13 +144,26 @@ public struct ServerMacro: PeerMacro {
         }
     }
     
-    /// 서버 생성 메서드 문자열 생성
-    private static func createServerMethodString(
-        structName: String,
+    /// 서버 속성 문자열 생성
+    private static func createServerPropertyString(
         serverName: String,
         serverVersion: String,
         capabilities: String,
-        configuration: String,
+        configuration: String
+    ) -> String {
+        return """
+/// 서버 인스턴스
+fileprivate(set) public var server: Server = Server(
+    name: \(serverName),
+    version: \(serverVersion),
+    capabilities: \(capabilities),
+    configuration: \(configuration)
+)
+"""
+    }
+    
+    /// 서버 초기화 메서드 문자열 생성
+    private static func createInitializeServerMethodString(
         toolHandlerMappings: [(tool: String, property: String, handler: String?)]
     ) -> String {
         var registrations = ""
@@ -159,69 +171,58 @@ public struct ServerMacro: PeerMacro {
         for mapping in toolHandlerMappings {
             if let handler = mapping.handler {
                 registrations += """
-                
-                    // \(mapping.tool) 도구 등록
-                    server.registerTool(
-                        self.\(mapping.property),
-                        handler: { [weak self] arguments in
-                            guard let self = self else {
-                                throw MCPError.internalError("Server was deallocated")
-                            }
-                            return try await self.\(handler)(arguments: arguments)
+                // \(mapping.tool) 도구 등록
+                server.registerTool(
+                    self.\(mapping.property),
+                    handler: { [weak self] arguments in
+                        guard let self = self else {
+                            throw MCPError.internalError("Server was deallocated")
                         }
-                    )
+                        return try await self.\(handler)(arguments: arguments)
+                    }
+                )
                 """
             } else {
                 registrations += """
-                
-                    // \(mapping.tool) 도구 등록 (핸들러 없음)
-                    server.registerTool(self.\(mapping.property))
+                // \(mapping.tool) 도구 등록 (핸들러 없음)
+                server.registerTool(self.\(mapping.property))
                 """
             }
         }
         
         return """
-/// 서버 인스턴스 생성
-func createServer() -> Server {
-    let server = Server(
-        name: \(serverName),
-        version: \(serverVersion),
-        capabilities: \(capabilities),
-        configuration: \(configuration)
-    )\(registrations)
-    
-    return server
-}
-"""
+        /// 서버 초기화 및 도구 등록
+        /// - Parameter additionalSetup: 추가 설정을 위한 선택적 클로저
+        /// - Returns: 초기화된 서버 인스턴스
+        public func initializeServer(additionalSetup: ((Server) async throws -> Void)? = nil) async throws -> Server {
+            \(registrations)
+            
+            // 추가 설정 수행
+            if let setup = additionalSetup {
+                try await setup(server)
+            }
+            
+            return server
+        }
+        """
     }
     
     /// 서버 시작 메서드 문자열 생성
-    private static func createStartServerMethodString(structName: String) -> String {
+    private static func createStartServerMethodString() -> String {
         return """
-/// 서버 시작
-/// - Parameter transport: 사용할 트랜스포트
-/// - Returns: 시작된 서버 인스턴스
-func startServer(transport: any Transport) async throws -> Server {
-    let server = createServer()
-    try await server.start(transport: transport)
-    return server
-}
-"""
-    }
-    
-    /// 래퍼 메서드 문자열 생성 - 타입 내부에 추가되는 메서드
-    private static func createWrapperMethodString() -> String {
-        return """
-/// 서버를 생성하고 시작하는 래퍼 메서드
-/// 다른 파일에서 접근할 수 있도록 public으로 선언
-/// - Parameter transport: 사용할 트랜스포트
-/// - Returns: 시작된 서버 인스턴스
-public func createAndStartServer(transport: any Transport) async throws -> Server {
-    // 매크로가 생성한 함수 호출
-    let server = createServer()
-    try await server.start(transport: transport)
-    return server
-}
-"""
+        /// 서버 시작 (초기화 포함)
+        /// - Parameters:
+        ///   - transport: 사용할 트랜스포트
+        ///   - setup: 추가 설정을 위한 선택적 클로저
+        /// - Returns: 시작된 서버 인스턴스
+        public func startServer(
+            transport: any Transport,
+            setup: ((Server) async throws -> Void)? = nil
+        ) async throws -> Server {
+            let initializedServer = try await initializeServer(additionalSetup: setup)
+            try await initializedServer.start(transport: transport)
+            return initializedServer
+        }
+        """
     }
 }

@@ -42,17 +42,20 @@ final class ServerMacroTests: MacroBaseTestCase {
                     let message = arguments?["message"]?.stringValue ?? "No message"
                     return [.text("Echo: \(message)")]
                 }
-            }
 
-            /// 서버 인스턴스 생성
-            func createServer() -> Server {
-                let server = Server(
+                /// 서버 인스턴스
+                fileprivate(set) public var server: Server = Server(
                     name: "TestServer",
                     version: "1.0.0",
                     capabilities: .default,
                     configuration: .default
                 )
-                // echo 도구 등록
+
+                /// 서버 초기화 및 도구 등록
+                /// - Parameter additionalSetup: 추가 설정을 위한 선택적 클로저
+                /// - Returns: 초기화된 서버 인스턴스
+                public func initializeServer(additionalSetup: ((Server) async throws -> Void)? = nil) async throws -> Server {
+                    // echo 도구 등록
                 server.registerTool(
                     self.echoTool,
                     handler: { [weak self] arguments in
@@ -61,29 +64,29 @@ final class ServerMacroTests: MacroBaseTestCase {
                         }
                         return try await self.echoToolHandler(arguments: arguments)
                     }
-                )
+                    )
 
-                return server
-            }
+                    // 추가 설정 수행
+                    if let setup = additionalSetup {
+                        try await setup(server)
+                    }
 
-            /// 서버 시작
-            /// - Parameter transport: 사용할 트랜스포트
-            /// - Returns: 시작된 서버 인스턴스
-            func startServer(transport: any Transport) async throws -> Server {
-                let server = createServer()
-                try await server.start(transport: transport)
-                return server
-            }
+                    return server
+                }
 
-            /// 서버를 생성하고 시작하는 래퍼 메서드
-            /// 다른 파일에서 접근할 수 있도록 public으로 선언
-            /// - Parameter transport: 사용할 트랜스포트
-            /// - Returns: 시작된 서버 인스턴스
-            public func createAndStartServer(transport: any Transport) async throws -> Server {
-                // 매크로가 생성한 함수 호출
-                let server = createServer()
-                try await server.start(transport: transport)
-                return server
+                /// 서버 시작 (초기화 포함)
+                /// - Parameters:
+                ///   - transport: 사용할 트랜스포트
+                ///   - setup: 추가 설정을 위한 선택적 클로저
+                /// - Returns: 시작된 서버 인스턴스
+                public func startServer(
+                    transport: any Transport,
+                    setup: ((Server) async throws -> Void)? = nil
+                ) async throws -> Server {
+                    let initializedServer = try await initializeServer(additionalSetup: setup)
+                    try await initializedServer.start(transport: transport)
+                    return initializedServer
+                }
             }
             """#
         }
@@ -141,17 +144,20 @@ final class ServerMacroTests: MacroBaseTestCase {
                 func calculatorToolHandler(arguments: [String: Value]?) async throws -> [Tool.Content] {
                     return [.text("Calculator")]
                 }
-            }
 
-            /// 서버 인스턴스 생성
-            func createServer() -> Server {
-                let server = Server(
+                /// 서버 인스턴스
+                fileprivate(set) public var server: Server = Server(
                     name: "MultiToolServer",
                     version: "1.0.0",
                     capabilities: .default,
                     configuration: .default
                 )
-                // echo 도구 등록
+
+                /// 서버 초기화 및 도구 등록
+                /// - Parameter additionalSetup: 추가 설정을 위한 선택적 클로저
+                /// - Returns: 초기화된 서버 인스턴스
+                public func initializeServer(additionalSetup: ((Server) async throws -> Void)? = nil) async throws -> Server {
+                    // echo 도구 등록
                 server.registerTool(
                     self.echoTool,
                     handler: { [weak self] arguments in
@@ -160,39 +166,38 @@ final class ServerMacroTests: MacroBaseTestCase {
                         }
                         return try await self.echoToolHandler(arguments: arguments)
                     }
-                )
-                // calculator 도구 등록
-                server.registerTool(
-                    self.calculatorTool,
-                    handler: { [weak self] arguments in
-                        guard let self = self else {
-                            throw MCPError.internalError("Server was deallocated")
+                    )// calculator 도구 등록
+                    server.registerTool(
+                        self.calculatorTool,
+                        handler: { [weak self] arguments in
+                            guard let self = self else {
+                                throw MCPError.internalError("Server was deallocated")
+                            }
+                            return try await self.calculatorToolHandler(arguments: arguments)
                         }
-                        return try await self.calculatorToolHandler(arguments: arguments)
+                    )
+
+                    // 추가 설정 수행
+                    if let setup = additionalSetup {
+                        try await setup(server)
                     }
-                )
 
-                return server
-            }
+                    return server
+                }
 
-            /// 서버 시작
-            /// - Parameter transport: 사용할 트랜스포트
-            /// - Returns: 시작된 서버 인스턴스
-            func startServer(transport: any Transport) async throws -> Server {
-                let server = createServer()
-                try await server.start(transport: transport)
-                return server
-            }
-
-            /// 서버를 생성하고 시작하는 래퍼 메서드
-            /// 다른 파일에서 접근할 수 있도록 public으로 선언
-            /// - Parameter transport: 사용할 트랜스포트
-            /// - Returns: 시작된 서버 인스턴스
-            public func createAndStartServer(transport: any Transport) async throws -> Server {
-                // 매크로가 생성한 함수 호출
-                let server = createServer()
-                try await server.start(transport: transport)
-                return server
+                /// 서버 시작 (초기화 포함)
+                /// - Parameters:
+                ///   - transport: 사용할 트랜스포트
+                ///   - setup: 추가 설정을 위한 선택적 클로저
+                /// - Returns: 시작된 서버 인스턴스
+                public func startServer(
+                    transport: any Transport,
+                    setup: ((Server) async throws -> Void)? = nil
+                ) async throws -> Server {
+                    let initializedServer = try await initializeServer(additionalSetup: setup)
+                    try await initializedServer.start(transport: transport)
+                    return initializedServer
+                }
             }
             """
         }
@@ -227,42 +232,45 @@ final class ServerMacroTests: MacroBaseTestCase {
                         return tool
                     }
                 }
-            }
 
-            /// 서버 인스턴스 생성
-            func createServer() -> Server {
-                let server = Server(
+                /// 서버 인스턴스
+                fileprivate(set) public var server: Server = Server(
                     name: "CustomServer",
                     version: "1.0.0",
                     capabilities: ServerCapabilities(
-                    tools: ServerCapabilities.Tools(listChanged: true)
-                ),
+                        tools: ServerCapabilities.Tools(listChanged: true)
+                    ),
                     configuration: .strict
                 )
-                // emptyTool 도구 등록 (핸들러 없음)
+
+                /// 서버 초기화 및 도구 등록
+                /// - Parameter additionalSetup: 추가 설정을 위한 선택적 클로저
+                /// - Returns: 초기화된 서버 인스턴스
+                public func initializeServer(additionalSetup: ((Server) async throws -> Void)? = nil) async throws -> Server {
+                    // emptyTool 도구 등록 (핸들러 없음)
                 server.registerTool(self.emptyTool)
 
-                return server
-            }
+                    // 추가 설정 수행
+                    if let setup = additionalSetup {
+                        try await setup(server)
+                    }
 
-            /// 서버 시작
-            /// - Parameter transport: 사용할 트랜스포트
-            /// - Returns: 시작된 서버 인스턴스
-            func startServer(transport: any Transport) async throws -> Server {
-                let server = createServer()
-                try await server.start(transport: transport)
-                return server
-            }
+                    return server
+                }
 
-            /// 서버를 생성하고 시작하는 래퍼 메서드
-            /// 다른 파일에서 접근할 수 있도록 public으로 선언
-            /// - Parameter transport: 사용할 트랜스포트
-            /// - Returns: 시작된 서버 인스턴스
-            public func createAndStartServer(transport: any Transport) async throws -> Server {
-                // 매크로가 생성한 함수 호출
-                let server = createServer()
-                try await server.start(transport: transport)
-                return server
+                /// 서버 시작 (초기화 포함)
+                /// - Parameters:
+                ///   - transport: 사용할 트랜스포트
+                ///   - setup: 추가 설정을 위한 선택적 클로저
+                /// - Returns: 시작된 서버 인스턴스
+                public func startServer(
+                    transport: any Transport,
+                    setup: ((Server) async throws -> Void)? = nil
+                ) async throws -> Server {
+                    let initializedServer = try await initializeServer(additionalSetup: setup)
+                    try await initializedServer.start(transport: transport)
+                    return initializedServer
+                }
             }
             """
         }

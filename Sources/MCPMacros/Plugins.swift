@@ -5,6 +5,7 @@ import SwiftSyntaxMacros
 struct MCPMacrosPlugin: CompilerPlugin {
     let providingMacros: [any Macro.Type] = [
         ToolMacro.self,
-        ServerMacro.self
+        ServerMacro.self,
+        ResourceMacro.self
     ]
 }

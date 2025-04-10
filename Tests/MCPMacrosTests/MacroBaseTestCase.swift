@@ -11,7 +11,8 @@ class MacroBaseTestCase: XCTestCase {
             record: false, // 테스트 기록 모드 비활성화
             macros: [
                 ToolMacro.self,
-                ServerMacro.self
+                ServerMacro.self,
+                ResourceMacro.self
             ]
         ) {
             super.invokeTest()

@@ -21,7 +21,7 @@ public macro Tool(name: String? = nil, description: String, inputSchema: Value? 
 ///   - version: 서버 버전
 ///   - capabilities: 서버 기능 (선택 사항)
 ///   - configuration: 서버 구성 (선택 사항)
-@attached(peer)
+@attached(member)
 public macro Server(
     name: String,
     version: String,
@@ -34,3 +34,24 @@ public typealias ServerCapabilities = Server.Capabilities
 
 /// 서버 구성을 위한 타입 별칭
 public typealias ServerConfiguration = Server.Configuration
+
+/// Resource 매크로는 속성을 MCP 리소스로 변환합니다.
+/// 이 매크로는 Resource.swift에 정의된 Resource 구조체와 1:1 매칭되는 속성을 생성합니다.
+///
+/// - Parameters:
+///   - name: 리소스 이름 (옵션, 지정하지 않으면 변수 이름 사용)
+///   - description: 리소스에 대한 설명 (옵션)
+///   - uri: 리소스 URI (필수)
+///   - mimeType: 리소스의 MIME 타입 (옵션)
+///   - metadata: 리소스의 메타데이터 (옵션)
+@attached(accessor)
+public macro Resource(
+    name: String? = nil, 
+    description: String? = nil, 
+    uri: String, 
+    mimeType: String? = nil,
+    metadata: [String: String]? = nil
+) = #externalMacro(
+    module: "MCPMacros",
+    type: "ResourceMacro"
+)
