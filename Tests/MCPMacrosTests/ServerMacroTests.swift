@@ -88,6 +88,17 @@ final class ServerMacroTests: MacroBaseTestCase {
                     return initializedServer
                 }
             }
+
+            func createServer() -> Server {
+                let server = MyServer().server
+                return server
+            }
+
+            func startServer(transport: any Transport) async throws -> Server {
+                let server = MyServer()
+                try await server.startServer(transport: transport)
+                return server.server
+            }
             """#
         }
     }
@@ -199,6 +210,17 @@ final class ServerMacroTests: MacroBaseTestCase {
                     return initializedServer
                 }
             }
+
+            func createServer() -> Server {
+                let server = MyComplexServer().server
+                return server
+            }
+
+            func startServer(transport: any Transport) async throws -> Server {
+                let server = MyComplexServer()
+                try await server.startServer(transport: transport)
+                return server.server
+            }
             """
         }
     }
@@ -271,6 +293,17 @@ final class ServerMacroTests: MacroBaseTestCase {
                     try await initializedServer.start(transport: transport)
                     return initializedServer
                 }
+            }
+
+            func createServer() -> Server {
+                let server = CustomServer().server
+                return server
+            }
+
+            func startServer(transport: any Transport) async throws -> Server {
+                let server = CustomServer()
+                try await server.startServer(transport: transport)
+                return server.server
             }
             """
         }

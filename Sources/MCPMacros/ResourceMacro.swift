@@ -26,15 +26,15 @@ public struct ResourceMacro: AccessorMacro {
         let nameArg = args.first(where: { $0.label?.text == "name" })?.expression
         let resourceName = nameArg != nil ? nameArg!.description : "\"\(identifier)\""
         
-        // description 매개변수 추출
+        // description 매개변수 추출 (선택적)
         let descArg = args.first(where: { $0.label?.text == "description" })?.expression
         let descValue = descArg?.description ?? "nil"
         
-        // mimeType 매개변수 추출 (있는 경우)
+        // mimeType 매개변수 추출 (선택적)
         let mimeTypeArg = args.first(where: { $0.label?.text == "mimeType" })?.expression
         let mimeTypeValue = mimeTypeArg?.description ?? "nil"
         
-        // metadata 매개변수 추출 (있는 경우)
+        // metadata 매개변수 추출 (선택적)
         let metadataArg = args.first(where: { $0.label?.text == "metadata" })?.expression
         let metadataValue = metadataArg?.description ?? "nil"
         

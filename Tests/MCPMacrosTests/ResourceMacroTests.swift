@@ -10,16 +10,16 @@ final class ResourceMacroTests: MacroBaseTestCase {
             """
             struct MyResources {
                 @Resource(uri: "test://example.txt")
-                var textResource: Resource
+                var simpleResource: Resource
             }
             """
         } expansion: {
             """
             struct MyResources {
-                var textResource: Resource {
+                var simpleResource: Resource {
                     get {
                         let resource = Resource(
-                            name: "textResource",
+                            name: "simpleResource",
                             uri: "test://example.txt",
                             description: nil,
                             mimeType: nil,
@@ -37,7 +37,7 @@ final class ResourceMacroTests: MacroBaseTestCase {
         assertMacro {
             """
             struct Documents {
-                @Resource(name: "readme", uri: "test://readme.md", mimeType: "text/markdown")
+                @Resource(name: "readme", uri: "test://readme.md")
                 var readmeDoc: Resource
             }
             """
@@ -50,7 +50,7 @@ final class ResourceMacroTests: MacroBaseTestCase {
                             name: "readme",
                             uri: "test://readme.md",
                             description: nil,
-                            mimeType: "text/markdown",
+                            mimeType: nil,
                             metadata: nil
                         )
                         return resource
@@ -64,27 +64,27 @@ final class ResourceMacroTests: MacroBaseTestCase {
     func testResourceWithAllParameters() {
         assertMacro {
             """
-            struct Documents {
+            struct DocumentStore {
                 @Resource(
-                    name: "api-spec",
-                    description: "API Specification Document",
-                    uri: "test://api/spec.json",
-                    mimeType: "application/json",
+                    name: "api-docs",
+                    description: "API 문서화 파일", 
+                    uri: "test://api/docs.md",
+                    mimeType: "text/markdown",
                     metadata: ["version": "1.0", "author": "MCP Team"]
                 )
-                var apiSpec: Resource
+                var apiDocumentation: Resource
             }
             """
         } expansion: {
             """
-            struct Documents {
-                var apiSpec: Resource {
+            struct DocumentStore {
+                var apiDocumentation: Resource {
                     get {
                         let resource = Resource(
-                            name: "api-spec",
-                            uri: "test://api/spec.json",
-                            description: "API Specification Document",
-                            mimeType: "application/json",
+                            name: "api-docs",
+                            uri: "test://api/docs.md",
+                            description: "API 문서화 파일",
+                            mimeType: "text/markdown",
                             metadata: ["version": "1.0", "author": "MCP Team"]
                         )
                         return resource
