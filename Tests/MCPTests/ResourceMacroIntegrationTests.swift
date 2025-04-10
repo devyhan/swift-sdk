@@ -6,92 +6,84 @@ import MCP
 struct ResourceIntegrationTests {
     @Test("Resources basic usage")
     func testResourcesBasicUsage() throws {
-        class DocumentResources {
+        // 리소스를 정의하는 구조체
+        struct DocumentResources {
             @Resource(uri: "test://example.txt")
-            var text: Resource
+            var simpleTextResource: Resource
             
             @Resource(
-                name: "documentation",
-                description: "API 문서", 
+                name: "api-docs",
+                description: "API 문서화 파일", 
                 uri: "test://api/docs.md",
-                mimeType: "text/markdown"
+                mimeType: "text/markdown",
+                metadata: ["version": "1.0"]
             )
-            var apiDocs: Resource
-            
-            // 리소스 내용 추출을 위한 헬퍼 메서드 - 실제 서버에서는 ReadResource 핸들러로 연결됨
-            func getTextResourceContent() -> String {
-                return "이것은 예제 텍스트 리소스입니다."
-            }
-            
-            func getApiDocsContent() -> String {
-                return "# API 문서\n\n## 엔드포인트\n\n- GET /api/v1/users\n- POST /api/v1/users"
-            }
+            var apiDocumentation: Resource
         }
         
+        // 리소스 구조체 인스턴스 생성
         let resources = DocumentResources()
         
-        // 리소스 검증
-        let textResource = resources.text
-        #expect(textResource.name == "text")
+        // 기본 리소스 확인
+        let textResource = resources.simpleTextResource
+        #expect(textResource.name == "simpleTextResource")
         #expect(textResource.uri == "test://example.txt")
         #expect(textResource.description == nil)
         #expect(textResource.mimeType == nil)
         
-        let apiDocsResource = resources.apiDocs
-        #expect(apiDocsResource.name == "documentation")
-        #expect(apiDocsResource.description == "API 문서")
-        #expect(apiDocsResource.uri == "test://api/docs.md")
-        #expect(apiDocsResource.mimeType == "text/markdown")
-        
-        // 리소스 내용 검증 (실제로는 서버에서 읽어옴)
-        let textContent = resources.getTextResourceContent()
-        #expect(textContent == "이것은 예제 텍스트 리소스입니다.")
-        
-        let apiDocsContent = resources.getApiDocsContent()
-        #expect(apiDocsContent.starts(with: "# API 문서"))
+        // 상세 리소스 확인
+        let docsResource = resources.apiDocumentation
+        #expect(docsResource.name == "api-docs")
+        #expect(docsResource.uri == "test://api/docs.md")
+        #expect(docsResource.description == "API 문서화 파일")
+        #expect(docsResource.mimeType == "text/markdown")
+        #expect(docsResource.metadata?["version"] == "1.0")
     }
     
-    @Test("Resources with Server integration")
-    func testResourcesWithServer() throws {
-        struct DocumentServer {
-            @Resource(uri: "test://example.txt", mimeType: "text/plain")
-            var textResource: Resource
+    @Test("Integration with server")
+    func testServerIntegration() throws {
+        // 서버와 리소스 통합 테스트를 위한 구조체
+        struct TestResourceServer {
+            @Resource(
+                name: "welcome",
+                description: "환영 메시지",
+                uri: "test://welcome.txt",
+                mimeType: "text/plain"
+            )
+            var welcomeResource: Resource
             
-            @Tool(description: "텍스트를 처리하는 도구")
-            var textProcessor: Tool
+            // 서버에서 리소스 제공 방법 시뮬레이션
+            func provideResources() -> [Resource] {
+                return [welcomeResource]
+            }
             
-            func textProcessorHandler(arguments: [String: Value]?) throws -> [Tool.Content] {
-                // 리소스를 사용해 텍스트 처리 시뮬레이션
-                let resourceContent = "예제 리소스의 내용입니다."
-                
-                if let op = arguments?["operation"]?.stringValue {
-                    switch op {
-                    case "uppercase":
-                        return [.text(resourceContent.uppercased())]
-                    case "lowercase":
-                        return [.text(resourceContent.lowercased())]
-                    default:
-                        return [.text(resourceContent)]
-                    }
+            // 리소스 내용 제공 시뮬레이션
+            func getResourceContent(uri: String) -> Resource.Content? {
+                if uri == welcomeResource.uri {
+                    return Resource.Content.text("Welcome to MCP Server!", uri: uri)
                 }
-                
-                return [.text(resourceContent)]
+                return nil
             }
         }
         
-        let server = DocumentServer()
+        // 서버 인스턴스 생성
+        let server = TestResourceServer()
         
-        // 리소스 검증
-        #expect(server.textResource.name == "textResource")
-        #expect(server.textResource.uri == "test://example.txt")
-        #expect(server.textResource.mimeType == "text/plain")
+        // 리소스 목록 확인
+        let resources = server.provideResources()
+        #expect(resources.count == 1)
+        #expect(resources[0].name == "welcome")
+        #expect(resources[0].uri == "test://welcome.txt")
         
-        // 도구와 함께 사용
-        let result = try server.textProcessorHandler(arguments: ["operation": .string("uppercase")])
-        if case .text(let text) = result.first {
-            #expect(text == "예제 리소스의 내용입니다.".uppercased())
+        // 리소스 내용 확인
+        let content = server.getResourceContent(uri: "test://welcome.txt")
+        #expect(content != nil)
+        
+        if let textContent = content {
+            #expect(textContent.text == "Welcome to MCP Server!")
+            #expect(textContent.uri == "test://welcome.txt")
         } else {
-            #expect(Bool(false), "예상된 텍스트 결과가 없습니다")
+            #expect(Bool(false), "예상된 텍스트 리소스가 없습니다")
         }
     }
 }
