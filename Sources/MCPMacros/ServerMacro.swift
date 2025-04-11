@@ -4,13 +4,34 @@ import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
 /// MCP 서버 매크로 구현
-public struct ServerMacro: MemberMacro {
+// 매크로 확장을 위한 인터페이스
+public protocol DiagnosticEmitter {}
+
+/// MCP 서버 매크로 구현
+public struct ServerMacro: MemberMacro, DiagnosticEmitter {
     public static func expansion(
         of node: AttributeSyntax,
         providingMembersOf declaration: some DeclSyntaxProtocol,
         conformingTo protocols: [TypeSyntax] = [],
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
+        // 속성 목록에서 @main 속성을 찾습니다
+        if let structDecl = declaration.as(StructDeclSyntax.self) {
+            let hasMainAttribute = structDecl.attributes.contains { attr in
+                if let attr = attr.as(AttributeSyntax.self),
+                   let attrName = attr.attributeName.as(IdentifierTypeSyntax.self) {
+                    return attrName.name.text == "main"
+                }
+                return false
+            }
+            
+            // @main 속성이 발견되면 경고를 출력합니다
+            if hasMainAttribute {
+                let message = "@Server 매크로는 자체적으로 main() 메서드를 생성합니다. @main 속성을 제거하고 대신 파일명을 'main.swift'가 아닌 다른 이름으로 변경하세요."
+                let diagnostic = Diagnostic(node: node, message: SwiftDiagnostics.DiagnosticMessage(message: message, diagnosticID: "server.duplicate.main", severity: .warning))
+                context.diagnose(diagnostic)
+            }
+        }
         guard let structDecl = declaration.as(StructDeclSyntax.self) else {
             throw MacroError("@Server는 구조체에만 적용할 수 있습니다")
         }
