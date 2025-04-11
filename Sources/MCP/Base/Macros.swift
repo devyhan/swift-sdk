@@ -12,3 +12,20 @@ public macro Tool(name: String? = nil, description: String, inputSchema: Value? 
     module: "MCPMacros",
     type: "ToolMacro"
 )
+
+/// 타입을 MCP 서버로 변환합니다.
+/// 이 매크로는 필요한 서버 메서드와 main 메서드를 자동 생성합니다.
+///
+/// - Parameters:
+///   - name: 서버 이름
+///   - version: 서버 버전
+///   - capabilities: 서버가 제공하는 기능 집합
+@attached(member, names: arbitrary)
+public macro Server(
+    name: String = "MCPServer",
+    version: String = "1.0.0",
+    capabilities: Server.Capabilities = .init()
+) = #externalMacro(
+    module: "MCPMacros",
+    type: "ServerMacro"
+)

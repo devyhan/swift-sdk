@@ -80,6 +80,58 @@ server.onNotification(ResourceUpdatedNotification.self) { message in
 await server.stop()
 ```
 
+### Using Macros for Swift MCP
+
+```swift
+import MCP
+
+// 도구 정의를 위한 구조체
+struct EchoTools {
+    // @Tool 매크로를 사용하여 도구 정의
+    @Tool(
+        name: "echo",
+        description: "Echoes back input text",
+        inputSchema: .object([
+            "message": .object(["type": .string("string")])
+        ])
+    )
+    var echo: Tool
+}
+
+// @Server 매크로를 사용한 간결한 서버 구현
+@main
+@Server(
+    name: "SimpleMCPServer",
+    version: "1.0.0",
+    capabilities: .init(tools: .init(listChanged: false))
+)
+struct MCPServer {
+    // 도구 초기화 오버라이드
+    private static func initializeTools() async throws -> [Tool] {
+        let tools = EchoTools()
+        return [tools.echo]
+    }
+    
+    // 핸들러 등록 오버라이드
+    private static func registerHandlers(server: Server, tools: [Tool]) async throws {
+        // ListTools 핸들러
+        await server.withMethodHandler(ListTools.self) { _ in
+            return ListTools.Result(tools: tools)
+        }
+        
+        // CallTool 핸들러
+        await server.withMethodHandler(CallTool.self) { params in
+            // 도구 실행 로직 구현
+            if params.name == "echo" {
+                let messageValue = params.arguments?["message"]?.stringValue ?? "No message"
+                return .init(content: [.text(messageValue)])
+            }
+            throw MCPError.methodNotFound(params.name)
+        }
+    }
+}
+```
+
 ### Working with Tools
 
 ```swift

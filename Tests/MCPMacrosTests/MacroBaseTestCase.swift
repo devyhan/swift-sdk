@@ -10,7 +10,8 @@
             MacroTesting.withMacroTesting(
                 record: false,
                 macros: [
-                    ToolMacro.self
+                    ToolMacro.self,
+                    ServerMacro.self
                 ]
             ) {
                 super.invokeTest()
