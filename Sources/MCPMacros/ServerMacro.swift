@@ -2,6 +2,12 @@ import SwiftCompilerPlugin
 import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
+import SwiftDiagnostics
+
+// SwiftDiagnostics에서 필요한 타입들을 더 쉽게 사용하기 위한 타입 참조
+fileprivate typealias Diagnostic = SwiftDiagnostics.Diagnostic
+fileprivate typealias DiagnosticMessage = SwiftDiagnostics.DiagnosticMessage
+fileprivate typealias DiagnosticSeverity = SwiftDiagnostics.DiagnosticSeverity
 
 /// MCP 서버 매크로 구현
 // 매크로 확장을 위한 인터페이스
@@ -28,7 +34,7 @@ public struct ServerMacro: MemberMacro, DiagnosticEmitter {
             // @main 속성이 발견되면 경고를 출력합니다
             if hasMainAttribute {
                 let message = "@Server 매크로는 자체적으로 main() 메서드를 생성합니다. @main 속성을 제거하고 대신 파일명을 'main.swift'가 아닌 다른 이름으로 변경하세요."
-                let diagnostic = Diagnostic(node: node, message: SwiftDiagnostics.DiagnosticMessage(message: message, diagnosticID: "server.duplicate.main", severity: .warning))
+                let diagnostic = Diagnostic(node: node, message: DiagnosticMessage(message: message, diagnosticID: "server.duplicate.main", severity: DiagnosticSeverity.warning))
                 context.diagnose(diagnostic)
             }
         }
