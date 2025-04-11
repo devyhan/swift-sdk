@@ -24,12 +24,14 @@ public macro Tool(name: String? = nil, description: String, inputSchema: Value? 
 ///   - version: 서버 버전 (기본값: "1.0.0")
 ///   - capabilities: 서버가 제공하는 기능 집합 (기본값: .init())
 ///   - generateMain: main() 메서드 생성 여부 (기본값: true)
+///   - publicSetup: setupServer() 메서드를 public으로 만들지 여부 (기본값: false)
 @attached(member, names: arbitrary)
 public macro Server(
     name: String = "MCPServer",
     version: String = "1.0.0",
     capabilities: Server.Capabilities = .init(),
-    generateMain: Bool = true
+    generateMain: Bool = true,
+    publicSetup: Bool = false
 ) = #externalMacro(
     module: "MCPMacros",
     type: "ServerMacro"

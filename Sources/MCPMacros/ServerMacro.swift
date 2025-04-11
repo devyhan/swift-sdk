@@ -72,12 +72,14 @@ public struct ServerMacro: MemberMacro {
         let versionArg = args?.first(where: { $0.label?.text == "version" })?.expression
         let capabilitiesArg = args?.first(where: { $0.label?.text == "capabilities" })?.expression
         let generateMainArg = args?.first(where: { $0.label?.text == "generateMain" })?.expression
+        let publicSetupArg = args?.first(where: { $0.label?.text == "publicSetup" })?.expression
         
         // 기본값 설정
         let serverName = nameArg?.description ?? "\"MCPServer\""
         let serverVersion = versionArg?.description ?? "\"1.0.0\""
         let serverCapabilities = capabilitiesArg?.description ?? ".init()"
         let generateMain = generateMainArg?.description ?? "true"
+        let publicSetup = publicSetupArg?.description == "true"
         
         // 기존 구현을 확인하여 중복 생성을 피합니다
         let existingMethods = structDecl.memberBlock.members.compactMap { member -> String? in
@@ -114,8 +116,10 @@ public struct ServerMacro: MemberMacro {
         
         // setupServer 메서드
         if !existingMethods.contains("setupServer") {
+            // publicSetup 여부에 따라 접근 제어자 결정
+            let accessModifier = publicSetup ? "public" : "private"
             declarations.append(DeclSyntax(stringLiteral: """
-            private static func setupServer() async throws -> Server {
+            \(accessModifier) static func setupServer() async throws -> Server {
                 fputs("log: setupServer: creating server instance...\\n", stderr)
                 
                 // 도구 초기화
