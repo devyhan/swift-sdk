@@ -8,6 +8,7 @@ import SwiftDiagnostics
 fileprivate typealias Diagnostic = SwiftDiagnostics.Diagnostic
 fileprivate typealias DiagnosticMessage = SwiftDiagnostics.DiagnosticMessage
 fileprivate typealias DiagnosticSeverity = SwiftDiagnostics.DiagnosticSeverity
+fileprivate typealias MessageID = SwiftDiagnostics.MessageID
 
 /// MCP 서버 매크로 구현
 // 매크로 확장을 위한 인터페이스
@@ -44,8 +45,22 @@ public struct ServerMacro: MemberMacro, DiagnosticEmitter {
             
             // @main 속성이 발견되면 경고를 출력합니다
             if hasMainAttribute {
-                let message = "@Server 매크로와 @main 속성은 함께 사용할 수 없습니다. @Server 매크로는 자체적으로 static func main() 메서드를 생성하여 프로그램의 진입점을 제공합니다. 해결 방법: 1) @main 속성을 제거하고 2) 파일명을 'main.swift'가 아닌 다른 이름으로 변경하세요."
-                let diagnostic = Diagnostic(node: node, message: DiagnosticMessage(message: message, diagnosticID: "server.duplicate.main", severity: DiagnosticSeverity.warning))
+                // 진단 메시지 구성
+                struct MainDiagnosticMessage: DiagnosticMessage {
+                    let message: String
+                    let diagnosticID: MessageID
+                    let severity: DiagnosticSeverity
+                    
+                    var id: MessageID { diagnosticID }
+                }
+                
+                let diagnosticMessage = MainDiagnosticMessage(
+                    message: "@Server 매크로와 @main 속성은 함께 사용할 수 없습니다. @Server 매크로는 자체적으로 static func main() 메서드를 생성하여 프로그램의 진입점을 제공합니다. 해결 방법: 1) @main 속성을 제거하고 2) 파일명을 'main.swift'가 아닌 다른 이름으로 변경하세요.",
+                    diagnosticID: MessageID(domain: "MCP.Server", id: "duplicate.main"),
+                    severity: .warning
+                )
+                
+                let diagnostic = Diagnostic(node: node, message: diagnosticMessage)
                 context.diagnose(diagnostic)
             }
         }
