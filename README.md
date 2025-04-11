@@ -2,6 +2,13 @@
 
 Swift implementation of the [Model Context Protocol][mcp] (MCP).
 
+## 최근 업데이트 내용
+
+### 2023-04-11: 서버 매크로 개선
+- `@Server` 매크로가 `@main` 속성과 충돌하는 문제 수정
+- 더 정확한 진단 메시지 제공
+- 사용자 가이드 업데이트
+
 ## Requirements
 
 - Swift 6.0+ / Xcode 16+
@@ -41,160 +48,57 @@ try await client.connect(transport: transport)
 let result = try await client.initialize()
 ```
 
-### Basic Server Setup
+### MCP Server Implementation
 
 ```swift
+// server.swift (Not main.swift!)
 import MCP
+import Foundation
 
-// Initialize the server with capabilities
-let server = Server(
+@Server(
     name: "MyServer", 
     version: "1.0.0",
     capabilities: .init(
-        prompts: .init(),
-        resources: .init(
-            subscribe: true
-        ),
-        tools: .init()
+        tools: .init(listChanged: true)
     )
 )
-
-// Create transport and start server
-let transport = StdioTransport()
-try await server.start(transport: transport)
-
-// Register method handlers
-server.withMethodHandler(ReadResource.self) { params in
-    // Handle resource read request
-    let uri = params.uri
-    let content = [Resource.Content.text("Example content")]
-    return .init(contents: content)
-}
-
-// Register notification handlers
-server.onNotification(ResourceUpdatedNotification.self) { message in
-    // Handle resource update notification
-}
-
-// Stop the server when done
-await server.stop()
-```
-
-### Using Macros for Swift MCP
-
-```swift
-import MCP
-
-// 도구 정의를 위한 구조체
-struct EchoTools {
-    // @Tool 매크로를 사용하여 도구 정의
+struct MCPServerImpl {
+    // Define tools using @Tool macro
     @Tool(
         name: "echo",
-        description: "Echoes back input text",
+        description: "Echoes back the input text",
         inputSchema: .object([
-            "message": .object(["type": .string("string")])
+            "message": .object([
+                "type": .string("string"),
+                "description": .string("The text to echo back")
+            ])
         ])
     )
-    var echo: Tool
-}
-
-// @Server 매크로를 사용한 간결한 서버 구현
-@main
-@Server(
-    name: "SimpleMCPServer",
-    version: "1.0.0",
-    capabilities: .init(tools: .init(listChanged: false))
-)
-struct MCPServer {
-    // 도구 초기화 오버라이드
-    private static func initializeTools() async throws -> [Tool] {
-        let tools = EchoTools()
-        return [tools.echo]
-    }
+    static var echoTool: Tool
     
-    // 핸들러 등록 오버라이드
+    // Optional: Override registerHandlers to customize handler registration
     private static func registerHandlers(server: Server, tools: [Tool]) async throws {
-        // ListTools 핸들러
-        await server.withMethodHandler(ListTools.self) { _ in
-            return ListTools.Result(tools: tools)
-        }
-        
-        // CallTool 핸들러
         await server.withMethodHandler(CallTool.self) { params in
-            // 도구 실행 로직 구현
-            if params.name == "echo" {
-                let messageValue = params.arguments?["message"]?.stringValue ?? "No message"
-                return .init(content: [.text(messageValue)])
+            if params.name == "echo",
+               let args = params.arguments,
+               let message = args["message"]?.stringValue {
+                return .init(content: [.text(message)])
             }
-            throw MCPError.methodNotFound(params.name)
+            throw MCPError.methodNotFound("Tool not found: \(params.name)")
         }
     }
 }
 ```
 
-### Working with Tools
+### Important Notes for Server Implementation
 
-```swift
-// List available tools
-let tools = try await client.listTools()
+1. **Do not use the `@main` attribute** with the `@Server` macro
+2. **Do not name your file `main.swift`** - use a different name like `server.swift`
+3. **Use a unique struct name** to avoid naming conflicts
 
-// Call a tool
-let (content, isError) = try await client.callTool(
-    name: "example-tool", 
-    arguments: ["key": "value"]
-)
+## More Information
 
-// Handle tool content
-for item in content {
-    switch item {
-    case .text(let text):
-        print(text)
-    case .image(let data, let mimeType, let metadata):
-        // Handle image data
-    }
-}
-```
-
-### Working with Resources
-
-```swift
-// List available resources
-let (resources, nextCursor) = try await client.listResources()
-
-// Read a resource
-let contents = try await client.readResource(uri: "resource://example")
-
-// Subscribe to resource updates
-try await client.subscribeToResource(uri: "resource://example")
-
-// Handle resource updates
-await client.onNotification(ResourceUpdatedNotification.self) { message in
-    let uri = message.params.uri
-    let content = message.params.content
-    // Handle the update
-}
-```
-
-### Working with Prompts
-
-```swift
-// List available prompts
-let (prompts, nextCursor) = try await client.listPrompts()
-
-// Get a prompt with arguments
-let (description, messages) = try await client.getPrompt(
-    name: "example-prompt",
-    arguments: ["key": "value"]
-)
-```
-
-## Changelog
-
-This project follows [Semantic Versioning](https://semver.org/). 
-For pre-1.0 releases, minor version increments (0.X.0) may contain breaking changes.
-
-For details about changes in each release, 
-see the [GitHub Releases page](https://github.com/modelcontextprotocol/swift-sdk/releases).
+For more details, see the [official MCP documentation][mcp].
 
 ## License
 

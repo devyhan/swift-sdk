@@ -23,17 +23,28 @@ public struct ServerMacro: MemberMacro, DiagnosticEmitter {
     ) throws -> [DeclSyntax] {
         // 속성 목록에서 @main 속성을 찾습니다
         if let structDecl = declaration.as(StructDeclSyntax.self) {
+            // @main 속성을 업그레이드된 방식으로 확인
             let hasMainAttribute = structDecl.attributes.contains { attr in
-                if let attr = attr.as(AttributeSyntax.self),
-                   let attrName = attr.attributeName.as(IdentifierTypeSyntax.self) {
-                    return attrName.name.text == "main"
+                // 속성이 AttributeSyntax 타입인지 확인
+                guard let attributeSyntax = attr.as(AttributeSyntax.self) else { return false }
+                
+                // 속성 이름이 IdentifierTypeSyntax (기본 식별자 속성)인지 확인
+                if let identifierType = attributeSyntax.attributeName.as(IdentifierTypeSyntax.self) {
+                    // 정확히 "main" 텍스트인지 확인
+                    let isMainAttribute = identifierType.name.text == "main"
+                    
+                    // 추가 검증: 속성이 다른 인자나 사용자 정의 값을 가지지 않는지 확인
+                    let hasNoArguments = attributeSyntax.arguments == nil
+                    
+                    return isMainAttribute && hasNoArguments
                 }
+                
                 return false
             }
             
             // @main 속성이 발견되면 경고를 출력합니다
             if hasMainAttribute {
-                let message = "@Server 매크로는 자체적으로 main() 메서드를 생성합니다. @main 속성을 제거하고 대신 파일명을 'main.swift'가 아닌 다른 이름으로 변경하세요."
+                let message = "@Server 매크로와 @main 속성은 함께 사용할 수 없습니다. @Server 매크로는 자체적으로 static func main() 메서드를 생성하여 프로그램의 진입점을 제공합니다. 해결 방법: 1) @main 속성을 제거하고 2) 파일명을 'main.swift'가 아닌 다른 이름으로 변경하세요."
                 let diagnostic = Diagnostic(node: node, message: DiagnosticMessage(message: message, diagnosticID: "server.duplicate.main", severity: DiagnosticSeverity.warning))
                 context.diagnose(diagnostic)
             }
