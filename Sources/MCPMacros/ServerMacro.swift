@@ -31,6 +31,9 @@ public struct ServerMacro: MemberMacro {
             return methodDecl.name.text
         }
         
+        // 구조체 내부의 @Tool 매크로가 적용된 변수들을 찾습니다
+        let toolVariables = findToolVariables(in: structDecl)
+        
         var declarations: [DeclSyntax] = []
         
         // main 메서드
@@ -83,14 +86,26 @@ public struct ServerMacro: MemberMacro {
             """))
         }
         
-        // initializeTools 메서드
+        // initializeTools 메서드 - @Tool 변수를 자동으로 추가
         if !existingMethods.contains("initializeTools") {
-            declarations.append(DeclSyntax(stringLiteral: """
-            private static func initializeTools() async throws -> [Tool] {
-                // 이 메서드를 오버라이드하여 도구 초기화 로직 구현
-                return []
+            // 구조체 내부에 @Tool 매크로가 있는 경우
+            if !toolVariables.isEmpty {
+                let toolsInitCode = toolVariables.map { "\($0)" }.joined(separator: ", ")
+                declarations.append(DeclSyntax(stringLiteral: """
+                private static func initializeTools() async throws -> [Tool] {
+                    // 구조체에서 정의된 @Tool 변수들을 자동으로 추가
+                    return [\(toolsInitCode)]
+                }
+                """))
+            } else {
+                // 구조체 내부에 @Tool 매크로가 없는 경우 기본 동작
+                declarations.append(DeclSyntax(stringLiteral: """
+                private static func initializeTools() async throws -> [Tool] {
+                    // 이 메서드를 오버라이드하여 도구 초기화 로직 구현
+                    return []
+                }
+                """))
             }
-            """))
         }
         
         // registerHandlers 메서드
@@ -111,5 +126,35 @@ public struct ServerMacro: MemberMacro {
         }
         
         return declarations
+    }
+    
+    // 구조체 내부의 @Tool 매크로가 적용된 변수들을 찾는 메서드
+    private static func findToolVariables(in structDecl: StructDeclSyntax) -> [String] {
+        var toolVariables: [String] = []
+        
+        for member in structDecl.memberBlock.members {
+            // 변수 선언인지 확인
+            guard let varDecl = member.decl.as(VariableDeclSyntax.self) else { continue }
+            
+            // 변수에 @Tool 매크로가 적용되었는지 확인
+            let hasToolMacro = varDecl.attributes.contains { attr in
+                if let attr = attr.as(AttributeSyntax.self),
+                   let attrName = attr.attributeName.as(IdentifierTypeSyntax.self) {
+                    return attrName.name.text == "Tool"
+                }
+                return false
+            }
+            
+            if hasToolMacro {
+                // 변수 이름 가져오기
+                for binding in varDecl.bindings {
+                    if let pattern = binding.pattern.as(IdentifierPatternSyntax.self) {
+                        toolVariables.append("self.\(pattern.identifier.text)")
+                    }
+                }
+            }
+        }
+        
+        return toolVariables
     }
 }
