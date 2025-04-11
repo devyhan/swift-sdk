@@ -50,6 +50,8 @@ let result = try await client.initialize()
 
 ### MCP Server Implementation
 
+#### Standalone Server (with automatic `main()` method)
+
 ```swift
 // server.swift (Not main.swift!)
 import MCP
@@ -61,6 +63,7 @@ import Foundation
     capabilities: .init(
         tools: .init(listChanged: true)
     )
+    // generateMain: true (Default)
 )
 struct MCPServerImpl {
     // Define tools using @Tool macro
@@ -90,10 +93,54 @@ struct MCPServerImpl {
 }
 ```
 
+#### Using with Custom Entry Point (@main)
+
+For custom entry points, set `generateMain: false` to avoid conflicts:
+
+```swift
+// server.swift
+import MCP
+
+@Server(
+    name: "MyServer", 
+    version: "1.0.0",
+    generateMain: false  // Important: Don't generate main method
+)
+struct ServerImpl {
+    // Server implementation
+}
+
+// main.swift
+import Foundation
+import MCP
+
+@main
+struct App {
+    static func main() {
+        Task {
+            do {
+                let server = try await ServerImpl.setupServer()
+                await server.waitUntilCompleted()
+            } catch {
+                print("Error: \(error)")
+                exit(1)
+            }
+        }
+        RunLoop.main.run()
+    }
+}
+```
+
 ### Important Notes for Server Implementation
 
-1. **Do not use the `@main` attribute** with the `@Server` macro
-2. **Do not name your file `main.swift`** - use a different name like `server.swift`
+1. When using standalone mode:
+   - **Do not use the `@main` attribute** with the `@Server` macro
+   - **Do not name your file `main.swift`** - use a different name like `server.swift`
+
+2. When integrating with custom entry point:
+   - Set `generateMain: false` in the `@Server` macro
+   - Call `setupServer()` from your main function
+
 3. **Use a unique struct name** to avoid naming conflicts
 
 ## More Information

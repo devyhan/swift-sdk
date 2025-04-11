@@ -16,18 +16,20 @@ public macro Tool(name: String? = nil, description: String, inputSchema: Value? 
 /// 타입을 MCP 서버로 변환합니다.
 /// 이 매크로는 필요한 서버 메서드와 main 메서드를 자동 생성합니다.
 ///
-/// 주의: main.swift 파일에서 사용하거나 @main 속성과 함께 사용하지 마세요.
-/// 이 매크로는 자체적으로 static func main() 메서드를 생성합니다.
+/// 중요: @main 속성과 함께 사용할 경우 generateMain을 false로 설정해야 합니다.
+/// 기본적으로 이 매크로는 static func main() 메서드를 생성합니다.
 ///
 /// - Parameters:
-///   - name: 서버 이름 
-///   - version: 서버 버전
-///   - capabilities: 서버가 제공하는 기능 집합
+///   - name: 서버 이름 (기본값: "MCPServer")
+///   - version: 서버 버전 (기본값: "1.0.0")
+///   - capabilities: 서버가 제공하는 기능 집합 (기본값: .init())
+///   - generateMain: main() 메서드 생성 여부 (기본값: true)
 @attached(member, names: arbitrary)
 public macro Server(
     name: String = "MCPServer",
     version: String = "1.0.0",
-    capabilities: Server.Capabilities = .init()
+    capabilities: Server.Capabilities = .init(),
+    generateMain: Bool = true
 ) = #externalMacro(
     module: "MCPMacros",
     type: "ServerMacro"

@@ -2,59 +2,82 @@ import SwiftCompilerPlugin
 import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
+import SwiftDiagnostics
+
+/// 진단 메시지 정의
+enum ServerMacroDiagnostic: DiagnosticMessage {
+    case notAStruct
+    case conflictWithMain
+    case mustOverrideMethod(String)
+    
+    var diagnosticID: MessageID {
+        MessageID(domain: "ServerMacro", id: String(describing: self))
+    }
+    
+    var message: String {
+        switch self {
+        case .notAStruct:
+            return "@Server can only be applied to a struct"
+        case .conflictWithMain:
+            return "@Server cannot be used with @main. The @Server macro generates its own 'static func main()'. Solutions: 1) Remove @main or 2) Use a separate file for main entry point."
+        case .mustOverrideMethod(let methodName):
+            return "You must override the '\(methodName)' method to provide custom implementation"
+        }
+    }
+    
+    var severity: DiagnosticSeverity {
+        switch self {
+        case .notAStruct, .conflictWithMain:
+            return .error
+        case .mustOverrideMethod:
+            return .warning
+        }
+    }
+}
 
 /// MCP 서버 매크로 구현
-// 매크로 확장을 위한 인터페이스
-public protocol DiagnosticEmitter {}
-
-/// MCP 서버 매크로 구현
-public struct ServerMacro: MemberMacro, DiagnosticEmitter {
+public struct ServerMacro: MemberMacro {
     public static func expansion(
         of node: AttributeSyntax,
         providingMembersOf declaration: some DeclSyntaxProtocol,
-        conformingTo protocols: [TypeSyntax] = [],
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
-        // 속성 목록에서 @main 속성을 찾습니다
-        if let structDecl = declaration.as(StructDeclSyntax.self) {
-            // @main 속성을 업그레이드된 방식으로 확인
-            let hasMainAttribute = structDecl.attributes.contains { attr in
-                // 속성이 AttributeSyntax 타입인지 확인
-                guard let attributeSyntax = attr.as(AttributeSyntax.self) else { return false }
-                
-                // 속성 이름이 IdentifierTypeSyntax (기본 식별자 속성)인지 확인
-                if let identifierType = attributeSyntax.attributeName.as(IdentifierTypeSyntax.self) {
-                    // 정확히 "main" 텍스트인지 확인
-                    let isMainAttribute = identifierType.name.text == "main"
-                    
-                    // 추가 검증: 속성이 다른 인자나 사용자 정의 값을 가지지 않는지 확인
-                    let hasNoArguments = attributeSyntax.arguments == nil
-                    
-                    return isMainAttribute && hasNoArguments
-                }
-                
-                return false
-            }
-            
-            // @main 속성이 발견되면 경고를 출력합니다
-            if hasMainAttribute {
-                // 진단 기능을 사용하는 대신 MacroError로 던지기
-                throw MacroError("@Server 매크로와 @main 속성은 함께 사용할 수 없습니다. @Server 매크로는 자체적으로 static func main() 메서드를 생성합니다. 해결 방법: 1) @main 속성을 제거하고 2) 파일명을 'main.swift'가 아닌 다른 이름으로 변경하세요.")
-            }
-        }
+        // 구조체 타입인지 확인
         guard let structDecl = declaration.as(StructDeclSyntax.self) else {
-            throw MacroError("@Server는 구조체에만 적용할 수 있습니다")
+            context.diagnose(Diagnostic(node: Syntax(node), message: ServerMacroDiagnostic.notAStruct))
+            return []
+        }
+        
+        // @main 속성이 있는지 확인
+        let hasMainAttribute = structDecl.attributes.contains { attr in
+            if let attrSyntax = attr.as(AttributeSyntax.self),
+               let identType = attrSyntax.attributeName.as(IdentifierTypeSyntax.self),
+               identType.name.text == "main" {
+                return true
+            }
+            return false
+        }
+        
+        // @main 속성과의 충돌 확인
+        if hasMainAttribute {
+            context.diagnose(Diagnostic(node: Syntax(node), message: ServerMacroDiagnostic.conflictWithMain))
+            // 경고만 출력하고 계속 진행
         }
         
         // 매크로 인자 파싱
         let args = node.arguments?.as(LabeledExprListSyntax.self)
+        
+        // 매개변수 파싱
         let nameArg = args?.first(where: { $0.label?.text == "name" })?.expression
         let versionArg = args?.first(where: { $0.label?.text == "version" })?.expression
         let capabilitiesArg = args?.first(where: { $0.label?.text == "capabilities" })?.expression
+        let generateMainArg = args?.first(where: { $0.label?.text == "generateMain" })?.expression
         
+        // 기본값 설정
         let serverName = nameArg?.description ?? "\"MCPServer\""
         let serverVersion = versionArg?.description ?? "\"1.0.0\""
         let serverCapabilities = capabilitiesArg?.description ?? ".init()"
+        let generateMain = generateMainArg?.description ?? "true"
         
         // 기존 구현을 확인하여 중복 생성을 피합니다
         let existingMethods = structDecl.memberBlock.members.compactMap { member -> String? in
@@ -67,8 +90,8 @@ public struct ServerMacro: MemberMacro, DiagnosticEmitter {
         
         var declarations: [DeclSyntax] = []
         
-        // main 메서드
-        if !existingMethods.contains("main") {
+        // main 메서드 - generateMain이 true이고 @main 속성이 없는 경우에만 생성
+        if !existingMethods.contains("main") && generateMain == "true" && !hasMainAttribute {
             declarations.append(DeclSyntax(stringLiteral: """
             static func main() async {
                 fputs("log: main: starting (async).\\n", stderr)
